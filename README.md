@@ -40,7 +40,7 @@ composer install
 
 ### Setting webhook URL
 
-3. Run the init script in your URL
+3. Call the init http endpoint in your URL
 ```
 https://my.telegram.callback/init
 ```

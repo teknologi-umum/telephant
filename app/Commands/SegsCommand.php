@@ -53,6 +53,14 @@ class SegsCommand extends UserCommand
      */
     public function execute(): ServerResponse
     {
-        return $this->replyToChat('Uwoogh... seggssss 😭');
+        try {
+            $msgText = $this->getMessage()->getText();
+            $splitMsgText = explode(' ', $msgText);
+            array_shift($splitMsgText);
+
+            return $this->replyToChat('Uwoogh...' . join(' ', $splitMsgText) . ' seggssss 😭');
+        } catch (Exception $e) {
+            return $this->replyToChat('Whoops, segs went wrong!');
+        }
     }
 }

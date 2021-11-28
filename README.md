@@ -23,6 +23,13 @@ TELEGRAM_BOT_USERNAME=my_telegram_username_bot
 TELEGRAM_BOT_WEBHOOK_URL=https://my.telegram.callback/hook
 ```
 
+Make sure the root of the `telephant` app is located in `https://my.telegram.callback`
+
+3. Install `composer` dependencies in project root directory
+```
+composer install
+```
+
 ### Building
 
 1. Run python build script with filename
@@ -31,13 +38,13 @@ TELEGRAM_BOT_WEBHOOK_URL=https://my.telegram.callback/hook
 ./build.py bot.zip
 ```
 
-### 
+### Setting webhook URL
 
 3. Run the init script in your URL
 ```
 https://my.telegram.callback/init
 ```
-
+ 
 Congrats. Your telegram bot has been set up. Enjoy!
  
-See https://github.com/teknologi-umum/telephant/bot-command-list.txt to tell `BotFather` in telegram this bot's commands.
+See https://github.com/teknologi-umum/telephant/blob/main/bot-command-list.txt to tell `BotFather` in telegram this bot's commands.

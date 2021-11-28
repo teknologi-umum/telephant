@@ -1,0 +1,2 @@
+echo - Get user information, private only
+bapac - Get bapac leaderboard & points

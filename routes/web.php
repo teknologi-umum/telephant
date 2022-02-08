@@ -8,8 +8,17 @@ use App\Commands\SegsCommand;
 use App\DataObject\TelegramMessageSenderJson;
 use App\Helpers\Helper;
 use App\Helpers\Json\BapackJson;
+use App\Models\Points;
+use App\Models\PointsTransactions;
+use App\Protos\TelephantPoint;
+use App\Protos\TelephantPointData;
+use App\Protos\TelephantPointResult;
+use App\Protos\TelephantPointResults;
+use App\Utility\PointsHandler;
+use Illuminate\Http\Request;
 use JsonMapper\Cache\NullCache;
 use JsonMapper\Handler\PropertyMapper;
+use JsonMapper\JsonMapper;
 use JsonMapper\JsonMapperFactory;
 use JsonMapper\Middleware\Attributes\Attributes;
 use JsonMapper\Middleware\TypedProperties;
@@ -53,7 +62,7 @@ $router->post('/hook', function () use ($router) {
         $telegram->addCommandClass(EchoMessageCommand::class);
         $telegram->addCommandClass(BapacCommand::class);
         $telegram->addCommandClass(SegsCommand::class);
-        
+
 
         // Handle telegram webhook request
         $telegram->handle();
@@ -89,9 +98,112 @@ $router->post('/bapack-test', function () use ($router) {
     new BapackJson;
     $st = '';
 
-    $st = $st.'h';
+    $st = $st . 'h';
 
     var_dump('st');
     var_dump($st);
-    Helper::bapac(123, '/bapac +10', null, null); 
+    Helper::bapac(123, '/bapac +10', null, null);
+});
+
+$router->get('/testparsepoints', function () use ($router) {
+    $msgTests = [
+        '/points bapac 1',
+        '/points hello 200',
+        '/points pizza 100',
+        '/points bruh -330',
+        '/points bruh -Z33x',
+        '/points bruh -33x',
+    ];
+
+    $tpData = new TelephantPointData();
+
+    $tpData?->setResults(
+        (function () use ($msgTests) {
+            $tprs = new TelephantPointResults();
+            $tprs->setResults(
+                array_map(
+                    function (string $msg) {
+                        $pts = PointsHandler::handle($msg);
+
+                        $foundPoint = (function () use ($pts): Points {
+                            $fp = Points::where('key', '=', $pts?->getKey())->first();
+
+                            if ($fp != null) {
+                                return $fp;
+                            } else {
+                                return Points::updateOrCreate(['id' => null], [
+                                    'key' => $pts?->getKey()
+                                ]);
+                            }
+                        })();
+
+                        PointsTransactions::updateOrCreate(['id' => null], [
+                            'points_id' => $foundPoint?->id,
+                            'points' => $pts?->getCount(),
+                            'op' => $pts?->getOp(),
+                        ]);
+
+                        return $pts;
+                    },
+                    $msgTests,
+                )
+            );
+
+            return $tprs;
+        })(),
+    );
+
+    $tpData?->setPoints(
+        array_map(
+            function (string $m): TelephantPoint {
+                $res = PointsHandler::handle($m);
+
+                $tp = new TelephantPoint;
+
+                $foundPoint = (function () use ($res): Points {
+                    $fp = Points::where('key', '=', $res?->getKey())->first();
+
+                    if ($fp != null) {
+                        return $fp;
+                    } else {
+                        return Points::updateOrCreate(['id' => null], [
+                            'key' => $res?->getKey()
+                        ]);
+                    }
+                })();
+
+                $tp?->setId($foundPoint?->id);
+                $tp?->setKey($foundPoint?->key);
+
+                return $tp;
+            },
+            $msgTests
+        )
+
+    );
+
+
+    return response($tpData->serializeToJsonString())
+        ->header('content-type', 'application/json');
+});
+
+$router->get('/points-view', function () use ($router) {
+    return Points::all()->map(function (Points $p) {
+        $p->pointsTransactions;
+
+        return $p;
+    });
+});
+
+$router->get('/points-leaderboard', function (Request $request) use ($router) {
+    $fPoint = Points::where("key", '=',  $request->query('key'))->first();
+
+    if ($fPoint != null) {
+        $fPoint->pointsTransactions;
+        return $fPoint;
+    }
+});
+
+$router->get('/points-transactions', function () use ($router) {
+    return PointsTransactions::all();
 });

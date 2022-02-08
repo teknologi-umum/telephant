@@ -21,4 +21,9 @@ class Bapacks extends Model
     {
         return $this->hasMany(BapacksTransaction::class, 'bapack_id');
     }
+
+    public function pointsTransactions()
+    {
+        return $this->hasMany(PointsTransactions::class, 'bapacks_id');
+    }
 }

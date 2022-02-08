@@ -1,0 +1,17 @@
+{
+    "name": "valian/protoc",
+    "autoload": {
+        "psr-4": {
+            "Valian\\Protoc\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "vmasdani",
+            "email": "valianmasdani@gmail.com"
+        }
+    ],
+    "require": {
+        "protobuf-php/protobuf": "^0.1.3"
+    }
+}

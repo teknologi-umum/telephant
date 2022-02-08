@@ -9,6 +9,7 @@ use App\Models\Bapacks;
 use JsonMapper\Cache\NullCache;
 use JsonMapper\Handler\PropertyMapper;
 use JsonMapper\JsonMapperFactory;
+use JsonMapper\JsonMapperInterface;
 use JsonMapper\Middleware\Attributes\Attributes;
 use JsonMapper\Middleware\Attributes\MapFrom;
 use JsonMapper\Middleware\TypedProperties;
@@ -61,5 +62,14 @@ class Helper
             ]);
             $command?->replyToChat('Bapac ' . $foundBapac?->user_id . ' not found. Creating...');
         }
+    }
+
+    
+    public static function createJsonMapper(): JsonMapperInterface {
+        return (new JsonMapperFactory())->create(
+            new PropertyMapper(),
+            new Attributes(),
+            new TypedProperties(new NullCache)
+        );
     }
 }

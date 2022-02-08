@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+option php_namespace = "App\\Protos";
+option php_metadata_namespace = "App\\Protos\\GPBMetadata";
+
+message TelephantPointResult {
+  optional int64 user_id = 1;
+  optional string key = 2;
+  enum PointOperator {
+    PLUS = 0;
+    MINUS = 1;
+  }
+  optional PointOperator op = 3;
+  optional int32 count = 4;
+}
+
+message TelephantPoint {
+  optional uint64 id = 1;
+  optional string key = 2;
+}
+
+message TelephantPointResults { repeated TelephantPointResult results = 1; }
+message TelephantPointData {
+  repeated TelephantPoint points = 1;
+  optional TelephantPointResults results = 2;
+}

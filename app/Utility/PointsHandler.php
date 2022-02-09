@@ -12,7 +12,13 @@ class PointsHandler
         $parsed = explode(' ', trim($msg));
 
         if (count($parsed) < 3) {
-            return null;
+            if (count($parsed) < 2) {
+                return null;
+            }
+            $tpr = new TelephantPointResult();
+            $tpr?->setKey($parsed[1]);
+
+            return $tpr;
         }
 
         $key = $parsed[1];

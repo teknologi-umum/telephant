@@ -4,6 +4,7 @@
 
 use App\Commands\BapacCommand;
 use App\Commands\EchoMessageCommand;
+use App\Commands\PointsCommand;
 use App\Commands\SegsCommand;
 use App\DataObject\TelegramMessageSenderJson;
 use App\Helpers\Helper;
@@ -62,6 +63,7 @@ $router->post('/hook', function () use ($router) {
         $telegram->addCommandClass(EchoMessageCommand::class);
         $telegram->addCommandClass(BapacCommand::class);
         $telegram->addCommandClass(SegsCommand::class);
+        $telegram->addCommandClass(PointsCommand::class);
 
 
         // Handle telegram webhook request

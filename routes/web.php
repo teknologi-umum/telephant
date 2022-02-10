@@ -209,3 +209,7 @@ $router->get('/points-leaderboard', function (Request $request) use ($router) {
 $router->get('/points-transactions', function () use ($router) {
     return PointsTransactions::all();
 });
+
+$router->get('/points-handle-test', function () use ($router) {
+    PointsHandler::execute(null, "/points a 4");
+});

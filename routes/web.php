@@ -9,11 +9,16 @@ use App\Commands\SegsCommand;
 use App\DataObject\TelegramMessageSenderJson;
 use App\Helpers\Helper;
 use App\Helpers\Json\BapackJson;
+use App\Models\Bapacks;
 use App\Models\Points;
 use App\Models\PointsTransactions;
+use App\Protos\BapacParsedPoint;
+use App\Protos\BapacParsedPoints;
+use App\Protos\TelephantBapac;
 use App\Protos\TelephantPoint;
 use App\Protos\TelephantPointData;
 use App\Protos\TelephantPointResult;
+use App\Protos\TelephantPointResult\PointOperator;
 use App\Protos\TelephantPointResults;
 use App\Utility\PointsHandler;
 use Illuminate\Http\Request;
@@ -115,6 +120,8 @@ $router->get('/testparsepoints', function () use ($router) {
         '/points bruh -330',
         '/points bruh -Z33x',
         '/points bruh -33x',
+        '/points',
+        '/points bruh'
     ];
 
     $tpData = new TelephantPointData();
@@ -122,6 +129,7 @@ $router->get('/testparsepoints', function () use ($router) {
     $tpData?->setResults(
         (function () use ($msgTests) {
             $tprs = new TelephantPointResults();
+            // dd($msgTests);
             $tprs->setResults(
                 array_map(
                     function (string $msg) {
@@ -145,6 +153,7 @@ $router->get('/testparsepoints', function () use ($router) {
                             'op' => $pts?->getOp(),
                         ]);
 
+                        // dd($pts);
                         return $pts;
                     },
                     $msgTests,
@@ -212,4 +221,105 @@ $router->get('/points-transactions', function () use ($router) {
 
 $router->get('/points-handle-test', function () use ($router) {
     PointsHandler::execute(null, "/points a 4");
+});
+
+$router->get('/points-transactions-relation', function (Request $request) use ($router) {
+    if ($request->query('key_name') == null || $request->query('key_name') == "") {
+        return response('Request key_name must not be empty.');
+    }
+
+    $foundPoint = Points::query()
+        ->where('key', '=', $request->query('key_name'))
+        ->first();
+
+    $newResponseBapac = new BapacParsedPoints();
+
+    $newResponseBapac?->setBapacParsedPoints(Bapacks::all()->map(function (Bapacks $b) use ($foundPoint) {
+        $keyTotalPts = 0;
+
+        PointsTransactions::query()
+            ->where('bapacks_id', '=', $b?->user_id)
+            ->get()
+            ->each(function (PointsTransactions $pt) use (&$keyTotalPts, $foundPoint) {
+                // dd($pt);
+
+                if (
+                    $pt?->points_id == $foundPoint?->id &&
+                    $pt?->points != null &&
+                    $pt?->points > 0
+                ) {
+                    switch ($pt?->op) {
+                        case PointOperator::MINUS:
+                            $keyTotalPts -= $pt->points;
+
+                        case PointOperator::PLUS:
+                            $keyTotalPts += $pt->points;
+
+                        default:
+                            $keyTotalPts += 0;
+                    }
+                    // $keyTotalPts += 1;
+                }
+
+                // $keyTotalPts += 1;
+            });
+
+
+        return (new BapacParsedPoint())
+            ?->setBapac(
+                (new TelephantBapac())
+                    ?->setId($b?->id)
+                    ?->setFirstName($b?->first_name)
+                    ?->setLastName($b?->last_name)
+            )
+            ?->setParsedPoints($keyTotalPts);
+    })->toArray());
+
+    $resStr = "";
+
+    // $bapacPoints = $newResponseBapac?->getBapacParsedPoints()?->getIterator();
+
+    // dd($bapacPoints);
+
+    // usort((array)$bapacPoints, function (
+    //     ?BapacParsedPoint $a,
+    //     ?BapacParsedPoint $b
+    // ) {
+    //     if ($a?->getParsedPoints() < $b?->getParsedPoints()) {
+    //         return -1;
+    //     } else {
+    //         return 1;
+    //     }
+    // });
+
+    foreach ($newResponseBapac?->getBapacParsedPoints() as $b) {
+        /** @var BapacParsedPoint */
+        $b = $b;
+
+        try {
+            $strBuilder = "";
+
+            if ($b?->getBapac()?->getFirstName() != null) {
+                $strBuilder  = $strBuilder . $b->getBapac()->getFirstName() . " ";
+            }
+
+            if ($b?->getBapac()?->getLastName() != null) {
+                $strBuilder = $strBuilder . $b->getBapac()->getLastName();
+            }
+            $strBuilder = $strBuilder . ": ";
+
+            if ($b?->getParsedPoints() != null) {
+                $strBuilder = $strBuilder . $b?->getParsedPoints();
+            }
+
+            $resStr = $resStr . $strBuilder . "\n";
+        } catch (Exception $e) {
+            $resStr = "Error\n";
+        }
+    }
+
+    dd($resStr);
+
+    return response($newResponseBapac?->serializeToJsonString())
+        ->header('content-type', 'application/json');
 });

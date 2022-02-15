@@ -5,6 +5,9 @@ namespace App\Utility;
 use App\Models\Bapacks;
 use App\Models\Points;
 use App\Models\PointsTransactions;
+use App\Protos\BapacParsedPoint;
+use App\Protos\BapacParsedPoints;
+use App\Protos\TelephantBapac;
 use App\Protos\TelephantPointResult;
 use App\Protos\TelephantPointResult\PointOperator;
 use Exception;
@@ -14,48 +17,59 @@ class PointsHandler
 {
     public static function handle(string $msg): ?TelephantPointResult
     {
-        $parsed = explode(' ', trim($msg));
+        try {
+            $parsed = explode(' ', trim($msg));
 
-        if (count($parsed) < 3) {
-            if (count($parsed) < 2) {
-                return null;
+            if (count($parsed) < 3) {
+                if (count($parsed) < 2) {
+                    return new TelephantPointResult();
+                }
+                $tpr = new TelephantPointResult();
+                $tpr?->setKey($parsed[1]);
+
+                return $tpr;
             }
+
+            $key = $parsed[1];
+            $pts = $parsed[2];
+
             $tpr = new TelephantPointResult();
-            $tpr?->setKey($parsed[1]);
+
+            if ($key != null) {
+                $tpr?->setKey($key);
+            }
+
+            if ($pts != null) {
+                $parsed_pts = 0;
+
+                try {
+                    $parsed_pts = (int) $pts;
+
+                    // Only number, default to plus
+                    if ($parsed_pts > 0) {
+                        $tpr->setOp(PointOperator::PLUS);
+                        $tpr->setCount($parsed_pts);
+                    } else {
+                        if (strlen($pts) > 1) {
+                            $opStr = substr($pts, 0, 1);
+
+                            if ($opStr == '+') {
+                                $tpr->setOp(PointOperator::PLUS);
+                            } else if ($opStr == '-') {
+                                $tpr->setOp(PointOperator::MINUS);
+                            }
+
+                            $tpr->setCount(abs((int) $pts));
+                        }
+                    }
+                } catch (Exception $e) {
+                }
+            }
 
             return $tpr;
+        } catch (Exception $e) {
+            return new TelephantPointResult();
         }
-
-        $key = $parsed[1];
-        $pts = $parsed[2];
-
-        $tpr = new TelephantPointResult();
-
-        if ($key != null) {
-            $tpr?->setKey($key);
-        }
-
-        if ($pts != null) {
-            $parsed_pts = (int) $pts;
-
-            // Only number, default to plus
-            if ($parsed_pts > 0) {
-                $tpr->setOp(PointOperator::PLUS);
-                $tpr->setCount($parsed_pts);
-            } else {
-                $opStr = substr($pts, 0, 1);
-
-                if ($opStr == '+') {
-                    $tpr->setOp(PointOperator::PLUS);
-                } else if ($opStr == '-') {
-                    $tpr->setOp(PointOperator::MINUS);
-                }
-
-                $tpr->setCount(abs((int) $pts));
-            }
-        }
-
-        return $tpr;
     }
 
     public static function execute(?UserCommand $com, string $messageText)
@@ -72,15 +86,126 @@ class PointsHandler
                 }
             })();
 
+            // return $com?->replyToChat('Bruh pts');
+
+
             // If parse result is null, just fail
-            if ($parseResult == null) {
+            if ($parseResult?->getKey() == null) {
                 return $com?->replyToChat('Usage: /points point_key +6');
             }
 
 
             // If reply from is null, just get leaderboard
-            if ($replyFrom != null) {
-                return $com?->replyToChat($parseResult?->getKey() . ' leaderboard:');
+            if ($replyFrom == null) {
+                $foundPoint = Points::query()
+                    ->where('key', '=', $parseResult?->getKey())
+                    ->first();
+
+                if ($foundPoint != null) {
+                    try {
+
+                        $bapacksResult = new BapacParsedPoints();
+
+                        $bapacksResult->setBapacParsedPoints(
+                            Bapacks::all()->map(function (Bapacks $b) use ($foundPoint,) {
+                                $keyTotalPts = 0;
+
+                                PointsTransactions::query()
+                                    ->where('bapacks_id', '=', $b?->user_id)
+                                    ->get()
+                                    ->each(function (PointsTransactions $pt) use (&$keyTotalPts, $foundPoint) {
+                                        if (
+                                            $pt?->points_id == $foundPoint?->id &&
+                                            $pt?->points != null &&
+                                            $pt?->points > 0
+                                        ) {
+                                            switch ($pt?->op) {
+                                                case PointOperator::MINUS:
+                                                    $keyTotalPts -= $pt->points;
+
+                                                case PointOperator::PLUS:
+                                                    $keyTotalPts += $pt->points;
+
+                                                default:
+                                                    $keyTotalPts += 0;
+                                            }
+                                            // $keyTotalPts += 1;
+                                        }
+                                    });
+
+
+                                return (new BapacParsedPoint())
+                                    ?->setBapac(
+                                        (new TelephantBapac())
+                                            ?->setId($b?->id)
+                                            ?->setFirstName($b?->first_name)
+                                            ?->setLastName($b?->last_name)
+                                    )
+                                    ?->setParsedPoints($keyTotalPts);
+                            })->toArray()
+                        );
+
+
+
+                        // usort((array) $bapacksResult?->getBapacParsedPoints(), function (
+                        //     ?BapacParsedPoint $a,
+                        //     ?BapacParsedPoint $b
+                        // ) {
+                        //     if ($a?->getParsedPoints() < $b?->getParsedPoints()) {
+                        //         return -1;
+                        //     } else {
+                        //         return 1;
+                        //     }
+                        // });
+
+                        $resStr = "";
+
+                        try {
+                            foreach ($bapacksResult?->getBapacParsedPoints() as $b) {
+                                /** @var BapacParsedPoint */
+                                $b = $b;
+
+                                if ($b?->getParsedPoints() != null && $b?->getParsedPoints()  != 0) {
+                                    try {
+                                        $strBuilder = "";
+
+                                        if ($b?->getBapac()?->getFirstName() != null) {
+                                            $strBuilder  = $strBuilder . $b->getBapac()->getFirstName() . " ";
+                                        }
+
+                                        if ($b?->getBapac()?->getLastName() != null) {
+                                            $strBuilder = $strBuilder . $b->getBapac()->getLastName();
+                                        }
+                                        $strBuilder = $strBuilder . ": ";
+
+                                        if ($b?->getParsedPoints() != null) {
+                                            $strBuilder = $strBuilder . $b?->getParsedPoints();
+                                        }
+
+                                        $resStr = $resStr . $strBuilder . "\n";
+                                    } catch (Exception $e) {
+                                        $resStr = "Error\n";
+                                    }
+                                }
+                            }
+                        } catch (Exception $e) {
+                            return $com?->replyToChat("Something went wrong." . $e);
+                        }
+
+
+                        // $resDebug = "";
+
+                        // foreach ($bapacksResult as $b) {
+                        //     $resDebug += $b?->serializeToJsonString() . "\n";
+                        // }
+
+                        return $com?->replyToChat($parseResult?->getKey() . " leaderboard: \n" . $resStr);
+                    } catch (Exception $e) {
+                        return $com?->replyToChat("Something went wrong.");
+                    }
+                } else {
+                    return $com?->replyToChat('Key not found.');
+                }
             }
 
             // Update bapac information

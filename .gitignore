@@ -5,3 +5,4 @@ Homestead.yaml
 .env
 .env.tmp
 .phpunit.result.cache
+bot.zip

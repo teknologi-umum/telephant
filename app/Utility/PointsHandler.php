@@ -112,6 +112,7 @@ class PointsHandler
 
                                 PointsTransactions::query()
                                     ->where('bapacks_id', '=', $b?->user_id)
+                                    ->where('points_id', '=', $foundPoint?->id)
                                     ->get()
                                     ->each(function (PointsTransactions $pt) use (&$keyTotalPts, $foundPoint) {
                                         if (
@@ -121,10 +122,12 @@ class PointsHandler
                                         ) {
                                             switch ($pt?->op) {
                                                 case PointOperator::MINUS:
-                                                    $keyTotalPts -= $pt->points;
+                                                    $keyTotalPts = $keyTotalPts - $pt->points;
+                                                    break;
 
                                                 case PointOperator::PLUS:
-                                                    $keyTotalPts += $pt->points;
+                                                    $keyTotalPts = $keyTotalPts + $pt->points;
+                                                    break;
 
                                                 default:
                                                     $keyTotalPts += 0;
@@ -275,12 +278,23 @@ class PointsHandler
                     ->where('points_id', '=', $foundPoint?->id)
                     ->get();
 
-                foreach ($pts as $p) {
-                    if ($p?->points != null) {
-                        if ($p?->op == PointOperator::PLUS) {
-                            $totalPoints += $p->points;
-                        } else if ($p?->op == PointOperator::MINUS) {
-                            $totalPoints -= $p->points;
+                foreach ($pts as $pt) {
+                    if (
+                        $pt?->points_id == $foundPoint?->id &&
+                        $pt?->points != null &&
+                        $pt?->points > 0
+                    ) {
+                        switch ($pt?->op) {
+                            case PointOperator::MINUS:
+                                $totalPoints -= $pt->points;
+                                break;
+
+                            case PointOperator::PLUS:
+                                $totalPoints += $pt->points;
+                                break;
+
+                            default:
+                                $totalPoints += 0;
                         }
                     }
                 }

@@ -65,7 +65,7 @@ class PointsHandler
                                 $tpr->setOp(PointOperator::MINUS);
                             }
 
-                            $tpr->setCount(abs((int) $pts));
+                            $tpr->setCount(abs($parsed_pts));
                         }
                     }
                 } catch (Exception $e) {

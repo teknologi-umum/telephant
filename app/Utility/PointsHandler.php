@@ -45,6 +45,12 @@ class PointsHandler
                 try {
                     $parsed_pts = (int) $pts;
 
+                    if ($parsed_pts > 10) {
+                        $parsed_pts = 10;
+                    } elseif ($parsed_pts < -10) {
+                        $parsed_pts = -10;
+                    }
+
                     // Only number, default to plus
                     if ($parsed_pts > 0) {
                         $tpr->setOp(PointOperator::PLUS);
@@ -59,7 +65,7 @@ class PointsHandler
                                 $tpr->setOp(PointOperator::MINUS);
                             }
 
-                            $tpr->setCount(abs((int) $pts));
+                            $tpr->setCount(abs($parsed_pts));
                         }
                     }
                 } catch (Exception $e) {
